@@ -1,0 +1,14 @@
+{
+  "name": "remote_ls",
+  "version": "1.0.0",
+  "description": "A utility for gathering file listing info from a remote machine",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Brian Hill",
+  "license": "ISC",
+  "dependencies": {
+    "cookies": "*"
+  }
+}

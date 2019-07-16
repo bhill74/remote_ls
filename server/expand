@@ -1,0 +1,84 @@
+#!/bin/bash
+
+USR=${1:-${USER}}
+GRPS=$(id -G $USR)
+ID=$(id -u $USR)
+LOC_ORG=${2:-${PWD}}
+HM=$(eval echo "~${USR}")
+LOG_MOD=$(echo $LOC_ORG | sed "s|^~/|${HM}/|")
+if [ ${LOG_MOD:0:1} != "/" ] && [ ${LOG_MOD:0:1} != "~" ]; then
+	LOG_MOD=${PWD}/$LOG_MOD
+fi
+
+# Resolve the path as far as the given user has access.
+spec=''
+while read dir; do
+	# Check if we are still using directory entries.
+	spec="${spec}/${dir}"
+	if [ ! -d "$spec" ]; then
+		break
+	fi
+
+	# Get the access mode of the current directory.
+	mode=$(stat -c "%a" $spec)
+
+	# Does the UID match?
+	uid=$(stat -c "%u" $spec)
+	umode=$((8#${mode:0:1}))
+	if [[ $uid == $ID ]] && ((($umode&1) == 1)); then
+		continue
+	fi
+
+	# Is the file GROUP accessible and does the GID match?
+	gmode=$((8#${mode:1:1}))
+	if ((($gmode&4) == 4)); then
+		gid=$(stat -c "%g" $spec)
+		if [[ " $gid " =~ " $GRPS " ]] && ((($mode&1) == 1)); then
+			continue
+		fi
+	fi
+
+	# Is the file OTHER accessible?
+	omode=$((8#${mode:2:1}))	
+	if ((($omode&4) == 4)) && ((($omode&1) == 1)); then
+		continue
+	fi
+
+	exit
+done < <(echo $LOG_MOD | tr '/' "\n" | grep --color=none .)
+
+i=$((${#LOC_ORG}-1))
+if [ ${LOC_ORG:i:1} == "/" ]; then	
+	spec="${spec}/*"
+else
+ 	if [ ! -e "$spec" ]; then
+		spec="${spec}*"
+	fi
+fi
+		
+ls -d ${spec} | while read file; do
+	# Does the UID match?
+	uid=$(stat -c "%u" $file)
+	if [[ $uid == $ID ]]; then
+		echo $file
+		continue
+	fi
+
+	# Is the file GROUP accessible and does the GID match?
+	mode=$(stat -c "%a" $file)
+	gmode=$((8#${mode:1:1}))
+	if ((($gmode&4) == 4)); then
+		gid=$(stat -c "%g" $file)
+		if [[ " $gid " =~ " $GRPS " ]]; then
+			echo $file
+			continue
+		fi
+	fi
+
+	# Is the file OTHER accessible?
+	omode=$((8#${mode:2:1}))
+	if ((($omode&4) == 4)); then
+		echo $file
+		continue
+	fi
+done | sed "s|${LOG_MOD}|${LOC_ORG}|"

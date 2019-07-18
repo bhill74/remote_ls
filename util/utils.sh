@@ -33,7 +33,8 @@ function complete() {
 	local mask=177
 
 	# Process the remote information. 
-	local host=$(echo $1 | cut -f1 -d:)
+	local prefix=$(echo $1 | cut -f1 -d:)
+	local host=$prefix
 	local path=$(echo $1 | cut -f2 -d:)
 	local user=$USER
 	if [[ $host =~ "@" ]]; then
@@ -41,21 +42,19 @@ function complete() {
 		host=$(echo $host | cut -f2 -d@)
 	fi
 
-	# Resolve the remote server.
-	local access=$(grep "^$host-" ~/.remote_ls | cut -f2 -d- | tail -1)
+	# Resolve the remote server and the port number.
 	local server_host=$host
 	local server_port=80
+	local access=$(grep "^$host=" ~/.remote_ls | cut -f2 -d= | tail -1)
 	if [[ $access =~ ":" ]]; then
 		server_host=$(echo $access | cut -f1 -d:)
 		server_port=$(echo $access | cut -f2 -d:)
 	fi
-
-	local new_file=$(mktemp /tmp/remote_ls_XXXXXX)
-	local access_file=${CKF:-${new_file}}
 	local server=http://${server_host}:${server_port}
 
-	(umask $mask && touch $access_file)
-	local cookies=$(get_cookies ${access_file} ${server_host})
+	# Get any cookies that are already in the environment.
+	local cookies_env=remote_ls_${host}_${user}
+	local cookies=$(echo "${!cookies_env}")
 
 	local pass=1
 	if [ -z "$cookies" ]; then
@@ -67,22 +66,24 @@ function complete() {
 		fi
 	fi
 
-echo "$user - $server_host:$server_port - $path - $pass"
-
 	if [[ $pass -eq 0 ]]; then
-		local passwd_file=$(mktemp /tmp/access_XXXXXX)
-		(umask $mask && touch $passwd_file)
-		local passwd=$(zenity --password)
+		local cookie_file=$(mktemp /tmp/remote_ls_cookies_XXXXXX)
+		local passwd_file=$(mktemp /tmp/remote_ls_access_XXXXXX)
+		(umask $mask && touch $passwd_file && touch $cookie_file)
+
+		# Log in to get the cookie authentication, then remove the file.
+		local passwd=$(zenity --password 2>/dev/null)
 		echo "machine ${server_host}" >> $passwd_file
 		echo "login ${user}" >> $passwd_file
 		echo "password ${passwd}" >> $passwd_file
-		curl --netrc-file "${passwd_file}" --cookie-jar "${access_file}" "${server}/auth"
+		curl --netrc-file "${passwd_file}" --cookie-jar "${cookie_file}" "${server}/auth"
 		rm ${passwd_file}
-		cookies=$(get_cookies ${access_file} ${server_host})
+
+		# Extract the cookies from the file, then remove the file.
+		cookies=$(get_cookies ${cookie_file} ${server_host})
+		printf -v $cookies_env "${cookies}"
+		rm ${cookie_file}
 	fi
 
-ls -l $access_file
-		
-	curl -s --cookie "${cookies}" ${server}/path${path}
-	export CKF=${access_file}
+	curl -s --cookie "${cookies}" ${server}/path${path} | sed "s/^/$prefix:/"
 }

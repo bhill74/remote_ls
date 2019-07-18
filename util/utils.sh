@@ -72,7 +72,7 @@ echo "$user - $server_host:$server_port - $path - $pass"
 	if [[ $pass -eq 0 ]]; then
 		local passwd_file=$(mktemp /tmp/access_XXXXXX)
 		(umask $mask && touch $passwd_file)
-		local passwd=$(zenity --password)
+		local passwd=$(zenity --password 2>/dev/null)
 		echo "machine ${server_host}" >> $passwd_file
 		echo "login ${user}" >> $passwd_file
 		echo "password ${passwd}" >> $passwd_file

@@ -3,6 +3,7 @@ const url = require('url');
 const child = require('child_process');
 const { parse } = require('querystring');
 var Cookies = require('cookies');
+const ls_util = require('../lib/ls');
 
 var keys = ['keyboard cat'];
 var auth_name = 'auth';

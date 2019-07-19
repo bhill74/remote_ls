@@ -19,7 +19,7 @@ function get_cookies() {
 }
 
 # ************************************************************
-# Name: complete()
+# Name: remote_paths()
 # Description: Retrieve all matching paths for the given path
 # from the remote server.
 # Arguments:
@@ -27,7 +27,7 @@ function get_cookies() {
 # Return:
 # The matching paths from the corresponding host.
 # ************************************************************
-function complete() {
+function remote_paths() {
 	# Set the mask to make sure all temporary files are only readable by 
 	# the current user.
 	local mask=177

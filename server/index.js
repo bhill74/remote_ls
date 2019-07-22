@@ -23,13 +23,10 @@ http.createServer(function(req, res) {
 	var auth = cookies.get(auth_name, { signed: true });
 	var result = '';
 
-console.log('URI ' + uri);
 	if (uri == '/auth') {
 		const b64cred = req.headers.authorization.split(' ')[1];
 		const cred = Buffer.from(b64cred, 'base64').toString('ascii');
 		const [userid, passwd] = cred.split(':');
-console.log('USERID = ' + userid);
-console.log('PASS = ' + passwd);
 		cookies.set(auth_name, userid, { maxAge: auth_age, sameSite: true, signed: true });
 	} else if (uri == '/check') {
 		result = auth ? auth : '';
@@ -37,9 +34,11 @@ console.log('PASS = ' + passwd);
 		var path = uri.replace(/^\/path/, '').trim();	
 		path=path.length ? path : '/';
 		var user = auth ? auth : '';
-//console.log('USER = ' + user);
-//console.log('PATH = ' + path);
-		result = child.execSync(process.cwd() + `/expand "${user}" ${path}`);
+		path.replace(/^~([^a-zA-Z])?/,`~${user}${1}`);
+console.log("P " + path);
+		path=ls_util.resolve_loc(path);
+		var items = ls_util.complete({userid: user, path: path});
+		result = items.join("\n"); 
 	} else {
 		code=404;
 		result='Not supported ' + uri;

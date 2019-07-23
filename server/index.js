@@ -17,13 +17,15 @@ http.createServer(function(req, res) {
 	var url_parts = url.parse(req.url, true);
 	var uri = url_parts.pathname;
 	uri.substr(1);
-
+	
 	var cookies = new Cookies(req, res, { keys: keys });
 
 	var auth = cookies.get(auth_name, { signed: true });
 	var result = '';
 
-	if (uri == '/auth') {
+	if (uri == '/alive') {
+		result='1';
+	} else if (uri == '/auth') {
 		const b64cred = req.headers.authorization.split(' ')[1];
 		const cred = Buffer.from(b64cred, 'base64').toString('ascii');
 		const [userid, passwd] = cred.split(':');
@@ -31,14 +33,17 @@ http.createServer(function(req, res) {
 	} else if (uri == '/check') {
 		result = auth ? auth : '';
 	} else if (uri.startsWith('/path')) {
-		var path = uri.replace(/^\/path/, '').trim();	
-		path=path.length ? path : '/';
+		var org_path = uri.replace(/^\/path/, '').trim();	
+		var path=org_path.length ? org_path : '/';
 		var user = auth ? auth : '';
 		path.replace(/^~([^a-zA-Z])?/,`~${user}${1}`);
-console.log("P " + path);
 		path=ls_util.resolve_loc(path);
+		var path_pat=path.replace('/','\\/');
+		var path_ex=RegExp(`^${path_pat}`);
 		var items = ls_util.complete({userid: user, path: path});
-		result = items.join("\n"); 
+		result = items.map((value) => {
+				return value.replace(path_ex, org_path);
+			}).join("\n"); 
 	} else {
 		code=404;
 		result='Not supported ' + uri;
@@ -46,5 +51,6 @@ console.log("P " + path);
 
 	res.writeHead(code, {'Content-type': 'text/plain'});
 	res.write(result);
+//console.log('Res: ' + result);
 	res.end();
 }).listen(1234);
